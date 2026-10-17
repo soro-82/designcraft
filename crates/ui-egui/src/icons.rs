@@ -290,11 +290,14 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32) {
         "panel-effects" => pen.text(10.0, 10.0, "fx", 11.0),
         "panel-character" => pen.text(10.0, 10.5, "A", 15.0),
         "panel-glyphs" => {
-            // A letter inside a glyph cell grid.
-            pen.rect(3.0, 3.0, 17.0, 17.0);
-            pen.line(&[(10.0, 3.0), (10.0, 17.0)]);
-            pen.line(&[(3.0, 10.0), (17.0, 10.0)]);
-            pen.text(10.0, 10.0, "A", 8.0);
+            // A 2x2 cell grid with the top-left cell open; a bold "A" sits in it.
+            pen.line(&[(9.32, 3.31), (17.56, 3.31)]); // top edge (TR cell only)
+            pen.line(&[(3.31, 7.56), (3.31, 17.56)]); // left edge (BL cell only)
+            pen.line(&[(17.56, 3.31), (17.56, 17.56)]); // right edge (full)
+            pen.line(&[(3.31, 17.56), (17.56, 17.56)]); // bottom edge (full)
+            pen.line(&[(10.73, 3.31), (10.73, 17.56)]); // middle vertical
+            pen.line(&[(3.31, 10.73), (17.56, 10.73)]); // middle horizontal
+            pen.text(7.0, 7.1, "A", 4.3);
         }
         "panel-typography" => pen.text(10.0, 10.5, "OT", 11.5),
         "panel-paragraph" => pen.text(10.0, 10.5, "¶", 15.0),
@@ -374,16 +377,23 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32) {
             pen.line(&[(11.0, 4.0), (9.0, 16.0)]);
         }
         "panel-articles" => {
-            // A couple of stacked pages.
-            pen.rect(7.0, 3.0, 17.0, 13.0);
-            pen.rect(3.0, 7.0, 13.0, 17.0);
+            // Three overlapping page frames stacked diagonally; three text bars
+            // on the front (bottom-left) page.
+            pen.rect(9.09, 3.0, 17.33, 13.42); // back page (top-right)
+            pen.rect(7.12, 5.6, 15.36, 15.97); // middle page
+            pen.rect(4.71, 8.08, 12.95, 17.0); // front page (bottom-left)
+            pen.frect(7.02, 8.88, 10.98, 9.97); // text bar 1
+            pen.frect(7.02, 11.5, 10.98, 12.59); // text bar 2
+            pen.frect(7.02, 14.12, 10.98, 15.22); // text bar 3
         }
         "panel-states" => {
-            // One object cycling through its states.
-            pen.rect(3.0, 3.0, 12.0, 14.0);
-            pen.ellipse(13.5, 13.0, 4.0, 4.0);
-            pen.line(&[(17.5, 13.0), (15.7, 11.9)]);
-            pen.line(&[(17.5, 13.0), (15.7, 14.1)]);
+            // A document frame with a gap on its right edge; a ring overlaps the
+            // bottom-left corner; three bars run across the right edge.
+            pen.line(&[(4.42, 4.03), (15.56, 4.03), (15.56, 6.54), (15.56, 13.29), (15.56, 16.5), (4.42, 16.5)]);
+            pen.circle(4.66, 15.0, 2.55);
+            pen.frect(11.56, 6.89, 17.0, 8.18);
+            pen.frect(11.56, 10.02, 17.0, 11.3);
+            pen.frect(11.56, 13.14, 17.0, 14.43);
         }
         "panel-buttons" => {
             // A push button.
@@ -397,8 +407,9 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32) {
             pen.line(&[(3.5, 15.0), (8.5, 10.5), (12.0, 13.5), (14.5, 11.0), (16.5, 13.0)]);
         }
         "panel-liquid" => {
-            // A droplet.
-            pen.closed(&[(10.0, 3.0), (13.2, 8.5), (13.9, 11.5), (12.6, 15.0), (10.0, 16.5), (7.4, 15.0), (6.1, 11.5), (6.8, 8.5)]);
+            // A droplet inside a bounding rectangle (liquid layout frame).
+            pen.rect(4.2, 2.6, 15.8, 17.0);
+            pen.closed(&[(10.0, 3.9), (12.6, 8.2), (13.2, 10.8), (12.1, 13.8), (10.0, 15.1), (7.9, 13.8), (6.8, 10.8), (7.4, 8.2)]);
         }
         "panel-transitions" => {
             // Opposing flow arrows.
@@ -424,10 +435,11 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32) {
             pen.line(&[(13.0, 6.5), (17.0, 5.0), (17.5, 15.5), (13.5, 16.5)]);
         }
         "panel-book" => {
-            // An open book: two pages meeting at the spine.
-            pen.closed(&[(10.0, 4.5), (3.0, 6.5), (3.0, 15.5), (10.0, 13.5)]);
-            pen.closed(&[(10.0, 4.5), (17.0, 6.5), (17.0, 15.5), (10.0, 13.5)]);
-            pen.line(&[(10.0, 4.5), (10.0, 13.5)]);
+            // An open book: two pages meeting at the spine (flipped vertically,
+            // pages droop down away from the spine).
+            pen.closed(&[(10.0, 15.5), (3.0, 13.5), (3.0, 4.5), (10.0, 6.5)]);
+            pen.closed(&[(10.0, 15.5), (17.0, 13.5), (17.0, 4.5), (10.0, 6.5)]);
+            pen.line(&[(10.0, 15.5), (10.0, 6.5)]);
         }
         "panel-scripts" => {
             // Script code: angle brackets around a slash.
