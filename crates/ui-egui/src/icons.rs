@@ -46,6 +46,10 @@ impl Pen<'_> {
     fn circle(&self, x: f32, y: f32, r: f32) {
         self.p.circle_stroke(self.pt(x, y), r * self.s(), Stroke::new(self.w * self.s(), self.c));
     }
+    /// A circle of radius `r` (to the middle of its band) drawn as a band `width` thick.
+    fn ring(&self, x: f32, y: f32, r: f32, width: f32) {
+        self.p.circle_stroke(self.pt(x, y), r * self.s(), Stroke::new(width * self.s(), self.c));
+    }
     fn fcircle(&self, x: f32, y: f32, r: f32) {
         self.p.circle_filled(self.pt(x, y), r * self.s(), self.c);
     }
@@ -290,14 +294,24 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32) {
         "panel-effects" => pen.text(10.0, 10.0, "fx", 11.0),
         "panel-character" => pen.text(10.0, 10.5, "A", 15.0),
         "panel-glyphs" => {
-            // A 2x2 cell grid with the top-left cell open; a bold "A" sits in it.
-            pen.line(&[(9.32, 3.31), (17.56, 3.31)]); // top edge (TR cell only)
-            pen.line(&[(3.31, 7.56), (3.31, 17.56)]); // left edge (BL cell only)
-            pen.line(&[(17.56, 3.31), (17.56, 17.56)]); // right edge (full)
-            pen.line(&[(3.31, 17.56), (17.56, 17.56)]); // bottom edge (full)
-            pen.line(&[(10.73, 3.31), (10.73, 17.56)]); // middle vertical
-            pen.line(&[(3.31, 10.73), (17.56, 10.73)]); // middle horizontal
-            pen.text(7.0, 7.1, "A", 4.3);
+            // A 2×2 grid of cells with the top-left cell open, and a bold "A" in that corner.
+            for (x0, y0, x1, y1) in [
+                (9.54, 3.75, 16.88, 5.05),
+                (9.54, 4.71, 10.84, 17.12),
+                (15.58, 4.71, 16.88, 17.12),
+                (3.51, 9.79, 9.88, 11.09),
+                (10.5, 9.79, 15.92, 11.09),
+                (3.51, 10.75, 4.81, 17.12),
+                (4.47, 15.82, 9.88, 17.12),
+                (10.5, 15.82, 15.92, 17.12),
+            ] {
+                pen.frect(x0, y0, x1, y1);
+            }
+            // The "A": two legs and a crossbar (the counter stays open), a small cap over their seam.
+            pen.fill(&[(4.34, 1.53), (4.94, 1.53), (4.94, 3.44), (3.91, 5.83), (3.35, 7.13), (2.76, 8.50), (1.16, 8.49)]);
+            pen.fill(&[(5.54, 1.53), (4.94, 1.53), (4.94, 3.44), (5.97, 5.83), (6.53, 7.13), (7.12, 8.50), (8.73, 8.49)]);
+            pen.fill(&[(4.50, 1.53), (5.38, 1.53), (4.94, 3.44)]);
+            pen.fill(&[(3.75, 5.83), (6.13, 5.83), (6.70, 7.13), (3.18, 7.13)]);
         }
         "panel-typography" => pen.text(10.0, 10.5, "OT", 11.5),
         "panel-paragraph" => pen.text(10.0, 10.5, "¶", 15.0),
@@ -377,23 +391,48 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32) {
             pen.line(&[(11.0, 4.0), (9.0, 16.0)]);
         }
         "panel-articles" => {
-            // Three overlapping page frames stacked diagonally; three text bars
-            // on the front (bottom-left) page.
-            pen.rect(9.09, 3.0, 17.33, 13.42); // back page (top-right)
-            pen.rect(7.12, 5.6, 15.36, 15.97); // middle page
-            pen.rect(4.71, 8.08, 12.95, 17.0); // front page (bottom-left)
-            pen.frect(7.02, 8.88, 10.98, 9.97); // text bar 1
-            pen.frect(7.02, 11.5, 10.98, 12.59); // text bar 2
-            pen.frect(7.02, 14.12, 10.98, 15.22); // text bar 3
+            // Three overlapping page frames stacked diagonally; three text bars on the front
+            // (bottom-left) page. Each page hides the ones behind it.
+            for (x0, y0, x1, y1) in [
+                (7.52, 1.06, 17.47, 2.36),
+                (7.52, 2.02, 8.82, 4.69),
+                (16.17, 2.02, 17.47, 14.33),
+                (8.48, 3.39, 15.06, 4.69),
+                (13.76, 4.35, 15.06, 14.67),
+                (14.72, 13.03, 16.51, 14.33),
+                (5.12, 3.39, 15.06, 4.69),
+                (5.12, 4.35, 6.42, 6.98),
+                (13.76, 4.35, 15.06, 16.65),
+                (6.08, 5.68, 12.48, 6.98),
+                (11.18, 6.64, 12.48, 16.99),
+                (12.14, 15.35, 14.1, 16.65),
+                (2.53, 5.68, 12.48, 6.98),
+                (2.53, 6.64, 3.83, 18.94),
+                (11.18, 6.64, 12.48, 18.94),
+                (3.49, 17.64, 11.52, 18.94),
+                (4.86, 7.68, 9.47, 8.98),
+                (4.86, 9.46, 9.47, 10.76),
+                (4.86, 11.22, 9.47, 12.52),
+            ] {
+                pen.frect(x0, y0, x1, y1);
+            }
         }
         "panel-states" => {
-            // A document frame with a gap on its right edge; a ring overlaps the
-            // bottom-left corner; three bars run across the right edge.
-            pen.line(&[(4.42, 4.03), (15.56, 4.03), (15.56, 6.54), (15.56, 13.29), (15.56, 16.5), (4.42, 16.5)]);
-            pen.circle(4.66, 15.0, 2.55);
-            pen.frect(11.56, 6.89, 17.0, 8.18);
-            pen.frect(11.56, 10.02, 17.0, 11.3);
-            pen.frect(11.56, 13.14, 17.0, 14.43);
+            // A document frame with a gap on its right edge, a ring over its bottom-left
+            // corner, and three bars across the gap.
+            for (x0, y0, x1, y1) in [
+                (4.77, 0.8, 15.89, 2.1),
+                (4.77, 1.76, 6.08, 15.65),
+                (14.59, 1.76, 15.89, 3.3),
+                (14.59, 10.64, 15.89, 15.65),
+                (5.74, 14.35, 14.93, 15.65),
+                (10.84, 4.46, 18.84, 5.76),
+                (10.84, 6.45, 18.84, 7.76),
+                (10.84, 8.45, 18.84, 9.76),
+            ] {
+                pen.frect(x0, y0, x1, y1);
+            }
+            pen.ring(6.35, 14.01, 4.53, 1.32);
         }
         "panel-buttons" => {
             // A push button.
