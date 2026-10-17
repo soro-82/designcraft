@@ -289,6 +289,13 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32) {
         }
         "panel-effects" => pen.text(10.0, 10.0, "fx", 11.0),
         "panel-character" => pen.text(10.0, 10.5, "A", 15.0),
+        "panel-glyphs" => {
+            // A letter inside a glyph cell grid.
+            pen.rect(3.0, 3.0, 17.0, 17.0);
+            pen.line(&[(10.0, 3.0), (10.0, 17.0)]);
+            pen.line(&[(3.0, 10.0), (17.0, 10.0)]);
+            pen.text(10.0, 10.0, "A", 8.0);
+        }
         "panel-typography" => pen.text(10.0, 10.5, "OT", 11.5),
         "panel-paragraph" => pen.text(10.0, 10.5, "¶", 15.0),
         "panel-pstyles" => {
@@ -367,11 +374,45 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32) {
             pen.line(&[(11.0, 4.0), (9.0, 16.0)]);
         }
         "panel-articles" => {
-            // Numbered blocks in order.
-            pen.rect(3.0, 3.0, 11.0, 8.0);
-            pen.rect(3.0, 12.0, 11.0, 17.0);
-            pen.line(&[(14.0, 5.5), (17.0, 5.5)]);
-            pen.line(&[(14.0, 14.5), (17.0, 14.5)]);
+            // A couple of stacked pages.
+            pen.rect(7.0, 3.0, 17.0, 13.0);
+            pen.rect(3.0, 7.0, 13.0, 17.0);
+        }
+        "panel-states" => {
+            // One object cycling through its states.
+            pen.rect(3.0, 3.0, 12.0, 14.0);
+            pen.ellipse(13.5, 13.0, 4.0, 4.0);
+            pen.line(&[(17.5, 13.0), (15.7, 11.9)]);
+            pen.line(&[(17.5, 13.0), (15.7, 14.1)]);
+        }
+        "panel-buttons" => {
+            // A push button.
+            pen.ellipse(10.0, 10.0, 8.0, 5.5);
+            pen.fcircle(10.0, 10.0, 1.8);
+        }
+        "panel-media" => {
+            // A picture in a frame.
+            pen.rect(3.0, 4.0, 17.0, 16.0);
+            pen.fcircle(7.5, 8.0, 1.7);
+            pen.line(&[(3.5, 15.0), (8.5, 10.5), (12.0, 13.5), (14.5, 11.0), (16.5, 13.0)]);
+        }
+        "panel-liquid" => {
+            // A droplet.
+            pen.closed(&[(10.0, 3.0), (13.2, 8.5), (13.9, 11.5), (12.6, 15.0), (10.0, 16.5), (7.4, 15.0), (6.1, 11.5), (6.8, 8.5)]);
+        }
+        "panel-transitions" => {
+            // Opposing flow arrows.
+            pen.line(&[(3.0, 7.0), (14.0, 7.0)]);
+            pen.line(&[(11.5, 4.5), (14.5, 7.0), (11.5, 9.5)]);
+            pen.line(&[(17.0, 13.0), (6.0, 13.0)]);
+            pen.line(&[(8.5, 10.5), (5.5, 13.0), (8.5, 15.5)]);
+        }
+        "panel-track" => {
+            // A pencil marking tracked changes.
+            pen.fill(&[(3.6, 16.4), (5.5, 14.5), (7.0, 16.0)]);
+            pen.line(&[(5.5, 14.5), (13.5, 6.5)]);
+            pen.line(&[(7.0, 16.0), (15.0, 8.0)]);
+            pen.line(&[(13.5, 6.5), (15.0, 8.0)]);
         }
         "panel-bookmarks" => {
             pen.closed(&[(6.0, 3.0), (14.0, 3.0), (14.0, 17.0), (10.0, 13.0), (6.0, 17.0)]);
@@ -381,6 +422,18 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32) {
             pen.rect(3.0, 4.0, 7.0, 16.0);
             pen.rect(8.0, 6.0, 12.0, 16.0);
             pen.line(&[(13.0, 6.5), (17.0, 5.0), (17.5, 15.5), (13.5, 16.5)]);
+        }
+        "panel-book" => {
+            // An open book: two pages meeting at the spine.
+            pen.closed(&[(10.0, 4.5), (3.0, 6.5), (3.0, 15.5), (10.0, 13.5)]);
+            pen.closed(&[(10.0, 4.5), (17.0, 6.5), (17.0, 15.5), (10.0, 13.5)]);
+            pen.line(&[(10.0, 4.5), (10.0, 13.5)]);
+        }
+        "panel-scripts" => {
+            // Script code: angle brackets around a slash.
+            pen.line(&[(7.5, 5.0), (3.5, 10.0), (7.5, 15.0)]);
+            pen.line(&[(12.5, 5.0), (16.5, 10.0), (12.5, 15.0)]);
+            pen.line(&[(11.2, 4.0), (8.8, 16.0)]);
         }
         "panel-notes" => {
             // A note with a folded corner.
