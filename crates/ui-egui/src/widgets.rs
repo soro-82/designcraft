@@ -80,6 +80,9 @@ pub struct NumField<'a> {
     range: (f64, f64),
     enabled: bool,
     parens: bool,
+    /// The dialog design language (`dlg_style.rs`): a 25 pt field, the unit beside the value, and a
+    /// separate stepper pill.
+    dialog: bool,
 }
 
 impl<'a> NumField<'a> {
@@ -90,7 +93,19 @@ impl<'a> NumField<'a> {
         Self::new(id, value, NumKind::Number { suffix, decimals })
     }
     fn new(id: &'a str, value: Option<f64>, kind: NumKind<'a>) -> Self {
-        NumField { id, value, kind, width: 72.0, spinner: false, presets: &[], step: None, range: (f64::MIN, f64::MAX), enabled: true, parens: false }
+        NumField {
+            id,
+            value,
+            kind,
+            width: 72.0,
+            spinner: false,
+            presets: &[],
+            step: None,
+            range: (f64::MIN, f64::MAX),
+            enabled: true,
+            parens: false,
+            dialog: false,
+        }
     }
     /// Total width (spinner and preset segments included).
     pub fn width(mut self, w: f32) -> Self {
@@ -130,6 +145,12 @@ impl<'a> NumField<'a> {
         self.enabled = on;
         self
     }
+    /// Draw the field in the dialog design language. [`NumField::width`] then covers the field and
+    /// its stepper pill (70 pt + 5 pt + 20 pt = 95 pt), and the unit shows beside the value.
+    pub fn dialog_style(mut self) -> Self {
+        self.dialog = true;
+        self
+    }
 
     /// Draw the field; returns the new value when the user commits an edit (Enter, focus loss,
     /// a spinner click, ↑/↓ while focused (Shift = ×10) or a preset).
@@ -140,6 +161,9 @@ impl<'a> NumField<'a> {
     /// Like [`NumField::show`]; a field emptied while it had a value commits `Some(None)` (for
     /// values that may be unset, like a character style's attributes).
     pub fn show_or_clear(self, ui: &mut Ui) -> Option<Option<f64>> {
+        if self.dialog {
+            return self.show_dialog_style(ui);
+        }
         let t = Tokens::get(ui.ctx());
         let key = ui.id().with(self.id);
         let (rect, _) = ui.allocate_exact_size(vec2(self.width, FIELD_H), Sense::hover());
@@ -260,6 +284,106 @@ impl<'a> NumField<'a> {
                     }
                 }
             });
+        }
+        if cleared { Some(None) } else { out.map(Some) }
+    }
+}
+
+impl NumField<'_> {
+    /// [`NumField::show_or_clear`] in the dialog design language.
+    fn show_dialog_style(self, ui: &mut Ui) -> Option<Option<f64>> {
+        use crate::dlg_style as dlg;
+        let key = ui.id().with(self.id);
+        let (rect, _) = ui.allocate_exact_size(vec2(self.width, dlg::CONTROL_H), Sense::hover());
+        let enabled = self.enabled && ui.is_enabled();
+        let field_w = if self.spinner { (self.width - dlg::STEPPER_W - dlg::STEPPER_GAP).max(1.0) } else { self.width };
+        let field = Rect::from_min_size(rect.min, vec2(field_w, dlg::CONTROL_H));
+        let step = self.step.unwrap_or_else(|| self.kind.step());
+        let clamp = |v: f64| v.clamp(self.range.0, self.range.1);
+        // The unit is drawn beside the value, so the value itself carries none.
+        let (kind, unit) = match self.kind {
+            NumKind::Number { suffix, decimals } => (NumKind::Number { suffix: "", decimals }, suffix.trim()),
+            other => (other, ""),
+        };
+        let fmt = |v: f64| if self.parens { format!("({})", kind.format(v)) } else { kind.format(v) };
+        let mut out: Option<f64> = None;
+        let mut cleared = false;
+        let focused_id = key.with("te");
+        let focused = ui.memory(|m| m.has_focus(focused_id));
+        let (fill, fg, unit_color, outline) = dlg::field_colors(ui.ctx(), focused, enabled);
+        ui.painter().rect_filled(field, dlg::field_radius(), fill);
+        let unit_w = if unit.is_empty() { 0.0 } else { crate::rtl::plain(ui.ctx(), unit, dlg::text_font(), unit_color).size().x };
+        if !unit.is_empty() {
+            crate::rtl::paint(
+                ui.painter(),
+                pos2(field.max.x - 5.0 - unit_w, field.center().y),
+                egui::Align2::LEFT_CENTER,
+                unit,
+                dlg::text_font(),
+                unit_color,
+            );
+        }
+        let right = if unit.is_empty() { field.max.x - 8.0 } else { field.max.x - 5.0 - unit_w };
+        let value_rect = Rect::from_min_max(pos2(field.min.x + 8.0, field.min.y + 1.0), pos2(right.max(field.min.x + 9.0), field.max.y - 1.0));
+        if enabled && ui.interact(field, key.with("click"), Sense::click()).clicked() {
+            ui.memory_mut(|m| m.request_focus(focused_id));
+        }
+        let mut buf: String = ui.data(|d| d.get_temp::<String>(key)).unwrap_or_else(|| self.value.map(&fmt).unwrap_or_default());
+        let te = egui::TextEdit::singleline(&mut buf)
+            .id(focused_id)
+            .frame(egui::Frame::NONE)
+            .font(dlg::strong_font())
+            .text_color(fg)
+            .hint_text(egui::RichText::new("-").font(dlg::strong_font()).color(unit_color))
+            .horizontal_align(egui::Align::Center)
+            .margin(egui::Margin::ZERO)
+            .vertical_align(egui::Align::Center);
+        let mut editor_ui = ui.new_child(egui::UiBuilder::new().max_rect(value_rect));
+        editor_ui.set_clip_rect(editor_ui.clip_rect().intersect(field));
+        if !enabled {
+            editor_ui.disable();
+        }
+        let r = editor_ui.put(value_rect, te);
+        if r.has_focus() {
+            // ↑/↓ step the value while typing.
+            let (up, down, shift) = ui.input_mut(|i| {
+                let s = i.modifiers.shift;
+                let up = i.consume_key(egui::Modifiers::SHIFT, egui::Key::ArrowUp) || i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp);
+                let down = i.consume_key(egui::Modifiers::SHIFT, egui::Key::ArrowDown) || i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown);
+                (up, down, s)
+            });
+            if up || down {
+                let base = self.parse(&buf).or(self.value).unwrap_or(0.0);
+                let v = clamp(base + if up { step } else { -step } * if shift { 10.0 } else { 1.0 });
+                buf = fmt(v);
+                out = Some(v);
+            }
+            ui.data_mut(|d| d.insert_temp(key, buf.clone()));
+        }
+        if r.lost_focus() {
+            if let Some(v) = self.parse(&buf).map(clamp)
+                && self.value.is_none_or(|old| (old - v).abs() > 1e-9)
+            {
+                out = Some(v);
+            } else if buf.trim().is_empty() && self.value.is_some() {
+                cleared = true;
+            }
+            ui.data_mut(|d| d.remove::<String>(key));
+        } else if !r.has_focus() {
+            ui.data_mut(|d| d.remove::<String>(key));
+        }
+        if out.is_some() && !r.has_focus() {
+            ui.data_mut(|d| d.remove::<String>(key));
+        }
+        if let Some(c) = outline {
+            ui.painter().rect_stroke(field, dlg::field_radius(), Stroke::new(1.0, c), StrokeKind::Inside);
+        }
+        if self.spinner {
+            let pill = Rect::from_min_size(pos2(field.max.x + dlg::STEPPER_GAP, rect.min.y), vec2(dlg::STEPPER_W, dlg::CONTROL_H));
+            if let Some(dir) = dlg::stepper(ui, pill, key.with("spin"), enabled) {
+                let mul = if ui.input(|i| i.modifiers.shift) { 10.0 } else { 1.0 };
+                out = Some(clamp(self.value.unwrap_or(0.0) + dir * step * mul));
+            }
         }
         if cleared { Some(None) } else { out.map(Some) }
     }

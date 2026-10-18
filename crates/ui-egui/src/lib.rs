@@ -13,6 +13,7 @@ pub mod control;
 pub mod credits;
 pub mod cursors;
 pub mod dialogs;
+pub mod dlg_style;
 pub mod dock;
 pub mod effects_dialog;
 pub mod i18n;

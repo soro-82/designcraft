@@ -126,10 +126,11 @@ fn visual_line(job: &LayoutJob, bidi: &BidiInfo<'_>, line: Range<usize>) -> Layo
         for (section, range) in sections {
             let mut format = section.format.clone();
             if rtl {
-                let bold = format.font_id.family == FontFamily::Name("semibold".into());
+                let heavy = format.font_id.family == FontFamily::Name("bold".into());
+                let bold = heavy || format.font_id.family == FontFamily::Name("semibold".into());
                 format.font_id.family = FontFamily::Name(if bold { "arabic-semibold" } else { "arabic" }.into());
                 if bold {
-                    format.coords = egui::epaint::text::VariationCoords::new([(*b"wght", 600.0)]);
+                    format.coords = egui::epaint::text::VariationCoords::new([(*b"wght", if heavy { 700.0 } else { 600.0 })]);
                 }
             }
             let text = &job.text[range];

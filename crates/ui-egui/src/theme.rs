@@ -88,6 +88,63 @@ pub struct Tokens {
     /// The Windows caption Close button when hovered, and its glyph.
     pub caption_close: Color32,
     pub caption_close_text: Color32,
+    /// The dialog design language (`dlg_style.rs`).
+    pub dialog: DialogTokens,
+}
+
+/// Colours of the dialog design language: the frame, its title bar, and the buttons, fields,
+/// switches and toggle buttons inside it. Measured from the Figma file "DesignCraft UI".
+///
+/// Only the dark set is designed so far; every brightness uses it until the light set exists.
+#[derive(Clone, Copy, Debug)]
+pub struct DialogTokens {
+    pub frame: Color32,
+    pub title_bar: Color32,
+    pub title_text: Color32,
+    /// Fields, dropdowns, toggle buttons, checkboxes and the switch track.
+    pub field: Color32,
+    /// A hovered control, and a hovered or selected dropdown row.
+    pub field_hover: Color32,
+    pub text: Color32,
+    /// Row labels, units and captions.
+    pub label: Color32,
+    pub text_disabled: Color32,
+    pub accent: Color32,
+    pub accent_hover: Color32,
+    pub accent_pressed: Color32,
+    /// Text on the accent button.
+    pub on_accent: Color32,
+    pub light_button: Color32,
+    pub light_button_pressed: Color32,
+    /// Text on the light button.
+    pub on_light: Color32,
+    /// Cancel on hover, and the title bar's close mark.
+    pub destructive: Color32,
+    pub shadow: Color32,
+}
+
+impl DialogTokens {
+    pub fn dark() -> Self {
+        DialogTokens {
+            frame: hex(0x262626),
+            title_bar: hex(0x4b4b4b),
+            title_text: hex(0xd9d9d9),
+            field: hex(0x4b4b4b),
+            field_hover: hex(0x383838),
+            text: hex(0xd9d9d9),
+            label: hex(0x999999),
+            text_disabled: hex(0x6e6e6e),
+            accent: hex(0x77b521),
+            accent_hover: hex(0xace55c),
+            accent_pressed: hex(0x5f9419),
+            on_accent: hex(0x262626),
+            light_button: hex(0xd9d9d9),
+            light_button_pressed: hex(0xbdbdbd),
+            on_light: hex(0x262626),
+            destructive: hex(0xda3742),
+            shadow: Color32::from_black_alpha(110),
+        }
+    }
 }
 
 fn hex(s: u32) -> Color32 {
@@ -133,6 +190,7 @@ impl Tokens {
             live_corner: hex(0xffe500),
             caption_close: hex(0xc42b1c),
             caption_close_text: Color32::WHITE,
+            dialog: DialogTokens::dark(),
         };
         match b {
             Brightness::Dark => dark,
@@ -456,10 +514,12 @@ pub(crate) fn font_definitions(craft: &'static [designcraft_fonts::CraftFont], l
     };
     add(&mut fonts, "ui", include_bytes!("../../../assets/fonts/SourceSans3-Regular.ttf"));
     add(&mut fonts, "ui-semibold", include_bytes!("../../../assets/fonts/SourceSans3-Semibold.ttf"));
+    add(&mut fonts, "ui-bold", include_bytes!("../../../assets/fonts/SourceSans3-Bold.ttf"));
     add(&mut fonts, "mono", include_bytes!("../../../assets/fonts/JetBrainsMono-Regular.ttf"));
     fonts.families.entry(FontFamily::Proportional).or_default().insert(0, "ui".into());
     fonts.families.entry(FontFamily::Monospace).or_default().insert(0, "mono".into());
     fonts.families.insert(FontFamily::Name("semibold".into()), vec!["ui-semibold".into(), "ui".into()]);
+    fonts.families.insert(FontFamily::Name("bold".into()), vec!["ui-bold".into(), "ui".into()]);
     let pick = |script: &str| -> Vec<&designcraft_fonts::CraftFont> { craft.iter().filter(|f| f.scripts.contains(&script)).collect() };
     let mut japanese = pick("Jpan");
     // BIZ UDPGothic (the UI face) first, Regular before Bold; the semibold family prefers Bold.
@@ -497,6 +557,10 @@ pub(crate) fn font_definitions(craft: &'static [designcraft_fonts::CraftFont], l
 
 pub fn semibold(size: f32) -> FontId {
     FontId::new(size, FontFamily::Name("semibold".into()))
+}
+
+pub fn bold(size: f32) -> FontId {
+    FontId::new(size, FontFamily::Name("bold".into()))
 }
 
 pub fn apply(ctx: &egui::Context, t: &Tokens) {
