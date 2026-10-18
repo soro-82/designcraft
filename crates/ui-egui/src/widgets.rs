@@ -161,7 +161,7 @@ impl<'a> NumField<'a> {
     /// Like [`NumField::show`]; a field emptied while it had a value commits `Some(None)` (for
     /// values that may be unset, like a character style's attributes).
     pub fn show_or_clear(self, ui: &mut Ui) -> Option<Option<f64>> {
-        if self.dialog {
+        if self.dialog || crate::dlg_style::active(ui.ctx()) {
             return self.show_dialog_style(ui);
         }
         let t = Tokens::get(ui.ctx());

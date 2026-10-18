@@ -43,6 +43,64 @@ pub fn is_styled(id: &str) -> bool {
     matches!(id, "justification")
 }
 
+/// Whether a converted dialog is being drawn. The shared helpers (`check`, `combo`, number
+/// fields) read it to draw themselves in this design language.
+pub fn active(ctx: &egui::Context) -> bool {
+    ctx.data(|d| d.get_temp::<bool>(egui::Id::new("dlg_style_active")).unwrap_or(false))
+}
+
+/// Marks a converted dialog as being drawn (or done).
+pub fn set_active(ctx: &egui::Context, on: bool) {
+    ctx.data_mut(|d| d.insert_temp(egui::Id::new("dlg_style_active"), on));
+}
+
+/// Gives the egui widgets inside a converted dialog the new look, so a dialog needs no per-widget
+/// work: buttons, combo boxes, text fields, sliders and drag values get the 25 pt height, 8 pt
+/// corners, field fill and green focus outline; labels are muted 12 pt text.
+pub fn apply_scope(ui: &mut Ui) {
+    let d = tokens(ui.ctx());
+    let style = ui.style_mut();
+    for (text_style, size) in [
+        (egui::TextStyle::Small, 11.0),
+        (egui::TextStyle::Body, TEXT_SIZE),
+        (egui::TextStyle::Button, TEXT_SIZE),
+        (egui::TextStyle::Monospace, TEXT_SIZE),
+    ] {
+        if let Some(font) = style.text_styles.get_mut(&text_style) {
+            font.size = size;
+        }
+    }
+    style.spacing.interact_size.y = CONTROL_H;
+    style.spacing.button_padding = vec2(BUTTON_PAD, 4.0);
+    style.spacing.combo_height = 320.0;
+    let v = &mut style.visuals;
+    v.override_text_color = None;
+    v.extreme_bg_color = d.field;
+    v.faint_bg_color = d.field_hover;
+    v.window_fill = d.frame;
+    v.selection.bg_fill = d.accent_pressed;
+    v.selection.stroke = Stroke::new(1.0, d.accent);
+    v.menu_corner_radius = radius();
+    let none = Stroke::NONE;
+    let widgets = &mut v.widgets;
+    widgets.noninteractive.fg_stroke = Stroke::new(1.0, d.label);
+    widgets.noninteractive.bg_stroke = Stroke::new(1.0, d.field);
+    for (w, fill, stroke, fg) in [
+        (&mut widgets.inactive, d.field, none, d.text),
+        (&mut widgets.hovered, d.field_hover, none, d.text),
+        (&mut widgets.active, d.field_hover, Stroke::new(1.0, d.accent), d.text),
+        (&mut widgets.open, d.field, Stroke::new(1.0, d.accent), d.text),
+    ] {
+        w.bg_fill = fill;
+        w.weak_bg_fill = fill;
+        w.bg_stroke = stroke;
+        w.fg_stroke = Stroke::new(1.0, fg);
+        w.corner_radius = radius();
+        w.expansion = 0.0;
+    }
+    widgets.noninteractive.corner_radius = radius();
+}
+
 fn tokens(ctx: &egui::Context) -> DialogTokens {
     Tokens::get(ctx).dialog
 }

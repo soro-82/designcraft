@@ -2017,7 +2017,12 @@ fn color_field(ui: &mut egui::Ui, d: &mut Dialog, key: &str) {
 
 fn check(ui: &mut egui::Ui, d: &mut Dialog, key: &str, label: &str) {
     let mut b = d.b(key);
-    if ui.checkbox(&mut b, crate::rtl::widget(ui, label)).changed() {
+    let changed = if crate::dlg_style::active(ui.ctx()) {
+        crate::dlg_style::checkbox(ui, &mut b, false, label).changed()
+    } else {
+        ui.checkbox(&mut b, crate::rtl::widget(ui, label)).changed()
+    };
+    if changed {
         d.fields.insert(key.into(), Value::Bool(b));
     }
 }
@@ -2099,7 +2104,11 @@ pub fn show(app: &mut DesignApp, ctx: &egui::Context) {
     if styled {
         modal = modal.frame(crate::dlg_style::frame(ctx));
     }
+    crate::dlg_style::set_active(ctx, styled);
     modal.show(ctx, |ui| {
+        if styled {
+            crate::dlg_style::apply_scope(ui);
+        }
         let frame_margin = if styled { egui::Vec2::ZERO } else { egui::Frame::popup(ui.style()).total_margin().sum() };
         let available = (ctx.content_rect().size() - frame_margin - egui::vec2(16.0, 16.0)).max(egui::Vec2::splat(1.0));
         let preferred_width: f32 = match d.id.as_str() {
@@ -2907,6 +2916,7 @@ pub fn show(app: &mut DesignApp, ctx: &egui::Context) {
             });
         });
     });
+    crate::dlg_style::set_active(ctx, false);
     // Preferences › General › Interface Language takes effect at once, like any other app setting.
     if let Some(lang) = d.fields.remove("applyLanguage")
         && let Err(e) = app.run("app.language", json!({"lang": lang}))
@@ -5720,6 +5730,16 @@ fn delete_character_style(app: &mut DesignApp, ui: &mut egui::Ui, d: &mut Dialog
 fn combo(ui: &mut egui::Ui, d: &mut Dialog, key: &str, opts: &[(&str, &str)]) {
     let cur = d.s(key);
     let shown = opts.iter().find(|o| o.0 == cur).map_or(cur.as_str(), |o| o.1).to_string();
+    if crate::dlg_style::active(ui.ctx()) {
+        let labels: Vec<String> = opts.iter().map(|o| o.1.to_string()).collect();
+        let current = opts.iter().position(|o| o.0 == cur);
+        if let Some(i) = crate::dlg_style::dropdown_list(ui, key, &shown, 170.0, &labels, current)
+            && let Some(o) = opts.get(i)
+        {
+            d.fields.insert(key.into(), json!(o.0));
+        }
+        return;
+    }
     egui::ComboBox::from_id_salt(key).selected_text(crate::rtl::widget(ui, &shown)).width(170.0).show_ui(ui, |ui| {
         for (v, label) in opts {
             if ui.selectable_label(cur == *v, crate::rtl::widget(ui, *label)).clicked() {
