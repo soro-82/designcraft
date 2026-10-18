@@ -2027,6 +2027,30 @@ fn check(ui: &mut egui::Ui, d: &mut Dialog, key: &str, label: &str) {
     }
 }
 
+/// A checkbox: the dialog design language's inside a converted dialog, egui's elsewhere. `mixed`
+/// shows the in-between state (the selected items differ).
+fn checkbox(ui: &mut egui::Ui, on: &mut bool, mixed: bool, label: &str) -> egui::Response {
+    if crate::dlg_style::active(ui.ctx()) {
+        crate::dlg_style::checkbox(ui, on, mixed, label)
+    } else {
+        ui.add(egui::Checkbox::new(on, crate::rtl::widget(ui, label)).indeterminate(mixed))
+    }
+}
+
+/// A radio button, in the same two looks.
+fn radio(ui: &mut egui::Ui, selected: bool, label: &str) -> egui::Response {
+    if crate::dlg_style::active(ui.ctx()) { crate::dlg_style::radio(ui, selected, label) } else { ui.radio(selected, crate::rtl::widget(ui, label)) }
+}
+
+/// One of a row of exclusive tabs: a toggle button in a converted dialog, a selectable label elsewhere.
+fn tab_button(ui: &mut egui::Ui, selected: bool, label: &str) -> egui::Response {
+    if crate::dlg_style::active(ui.ctx()) {
+        crate::dlg_style::toggle_button(ui, label, selected)
+    } else {
+        ui.selectable_label(selected, crate::rtl::widget(ui, label))
+    }
+}
+
 pub fn show(app: &mut DesignApp, ctx: &egui::Context) {
     let Some(mut d) = app.ui.dialog.clone() else { return };
     // Enter and Escape belong to an open popup (a menu, a name field) rather than the dialog.
@@ -4503,7 +4527,7 @@ fn para_count(ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, key: &str, range: (
 
 fn para_check(ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, key: &str, label: &str) {
     let mut on = para_value(d, pv, key).as_bool().unwrap_or(false);
-    if ui.checkbox(&mut on, crate::rtl::widget(ui, label)).changed() {
+    if checkbox(ui, &mut on, false, label).changed() {
         para_set(d, key, json!(on));
     }
 }
@@ -4756,10 +4780,10 @@ fn keep_options(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value) {
     ui.add_enabled_ui(together, |ui| {
         ui.indent("pskeepall", |ui| {
             let all = para_value(d, pv, "keepAllLines").as_bool().unwrap_or(true);
-            if ui.radio(all, crate::rtl::widget(ui, crate::i18n::tr(lang, "All Lines in Paragraph"))).clicked() {
+            if radio(ui, all, crate::i18n::tr(lang, "All Lines in Paragraph")).clicked() {
                 para_set(d, "keepAllLines", json!(true));
             }
-            if ui.radio(!all, crate::rtl::widget(ui, crate::i18n::tr(lang, "At Start/End of Paragraph"))).clicked() {
+            if radio(ui, !all, crate::i18n::tr(lang, "At Start/End of Paragraph")).clicked() {
                 para_set(d, "keepAllLines", json!(false));
             }
             ui.add_enabled_ui(!all, |ui| {
@@ -5125,7 +5149,7 @@ fn bullets_and_numbering(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Val
                 ui.horizontal(|ui| {
                     let tab = para_value(d, pv, "listTab").as_f64();
                     let mut on = tab.is_some();
-                    if ui.checkbox(&mut on, "").changed() {
+                    if checkbox(ui, &mut on, false, "").changed() {
                         let left = para_value(d, pv, "leftIndent").as_f64().filter(|v| v.is_finite() && *v > 0.0).unwrap_or(18.0);
                         para_set(d, "listTab", if on { json!(left) } else { Value::Null });
                     }
@@ -5161,7 +5185,7 @@ fn paragraph_local(app: &mut DesignApp, ui: &mut egui::Ui, d: &mut Dialog) {
             let border = section != "shading";
             ui.horizontal(|ui| {
                 for (tab, label) in [("border", "Border"), ("shading", "Shading")] {
-                    if ui.selectable_label(section == tab, crate::rtl::widget(ui, crate::i18n::tr(&lang, label))).clicked() {
+                    if tab_button(ui, section == tab, crate::i18n::tr(&lang, label)).clicked() {
                         d.fields.insert("section".into(), json!(tab));
                     }
                 }
@@ -5394,7 +5418,7 @@ fn char_check(ui: &mut egui::Ui, d: &mut Dialog, cf: &CharFields, key: &str, lab
     let cur = cf.get(d, key);
     let mut on = cur.as_bool().unwrap_or(false);
     let unset = cf.sparse && cur.is_null();
-    if ui.add(egui::Checkbox::new(&mut on, crate::rtl::widget(ui, label)).indeterminate(unset)).clicked() {
+    if checkbox(ui, &mut on, unset, label).clicked() {
         let next = match cur.as_bool() {
             _ if !cf.sparse => json!(on),
             None => json!(true),
@@ -5619,7 +5643,7 @@ fn open_type_features(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, cf: &CharFi
     egui::Grid::new("csot").num_columns(2).spacing([16.0, 4.0]).show(ui, |ui| {
         for (i, (tag, label, _)) in otf::TOGGLES.iter().enumerate() {
             let mut on = otf::is_on(&list, tag);
-            if ui.checkbox(&mut on, crate::rtl::widget(ui, crate::i18n::tr(lang, label))).changed() {
+            if checkbox(ui, &mut on, false, crate::i18n::tr(lang, label)).changed() {
                 otf::set(&mut list, tag, on);
                 changed = true;
             }
@@ -6006,7 +6030,7 @@ fn paragraph_rules(app: &DesignApp, ui: &mut egui::Ui, d: &mut Dialog, prefix: &
         );
         ui.add_space(12.0);
         let mut on = rule["on"].as_bool().unwrap_or(false);
-        if ui.checkbox(&mut on, crate::rtl::widget(ui, crate::i18n::tr(lang, "Rule On"))).changed() {
+        if checkbox(ui, &mut on, false, crate::i18n::tr(lang, "Rule On")).changed() {
             d.fields.insert(key("on"), json!(on));
         }
     });

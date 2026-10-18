@@ -40,7 +40,7 @@ pub const FOOTER_MARGIN: Margin = Margin { left: 19, right: 25, top: 0, bottom: 
 
 /// Whether the dialog `id` has been converted to the new design language.
 pub fn is_styled(id: &str) -> bool {
-    matches!(id, "justification")
+    matches!(id, "justification" | "paragraphRules" | "paragraphLocal")
 }
 
 /// Whether a converted dialog is being drawn. The shared helpers (`check`, `combo`, number
@@ -308,6 +308,29 @@ pub fn checkbox(ui: &mut Ui, on: &mut bool, mixed: bool, caption: &str) -> Respo
     }
     let on_now = *on && !mixed;
     resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, enabled, on_now, caption));
+    resp
+}
+
+/// A radio button: a 25 pt round well with a green dot when chosen, then the caption.
+pub fn radio(ui: &mut Ui, selected: bool, caption: &str) -> Response {
+    let d = tokens(ui.ctx());
+    let enabled = ui.is_enabled();
+    let galley = crate::rtl::plain(ui.ctx(), caption, text_font(), d.label);
+    let extra = if caption.is_empty() { 0.0 } else { 9.0 + galley.size().x };
+    let (r, resp) = ui.allocate_exact_size(vec2(CONTROL_H + extra, CONTROL_H), if enabled { Sense::click() } else { Sense::hover() });
+    let well = Rect::from_min_size(r.min, vec2(CONTROL_H, CONTROL_H));
+    let fill = if enabled && resp.hovered() { d.field_hover } else { d.field };
+    ui.painter().circle_filled(well.center(), CONTROL_H / 2.0, fill);
+    if enabled && resp.has_focus() {
+        ui.painter().circle_stroke(well.center(), CONTROL_H / 2.0 - 0.5, Stroke::new(1.0, d.accent));
+    }
+    if selected {
+        ui.painter().circle_filled(well.center(), 7.5, if enabled { d.accent } else { d.text_disabled });
+    }
+    if !caption.is_empty() {
+        crate::rtl::paint(ui.painter(), pos2(well.max.x + 9.0, r.center().y), Align2::LEFT_CENTER, caption, text_font(), d.label);
+    }
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::RadioButton, enabled, selected, caption));
     resp
 }
 
