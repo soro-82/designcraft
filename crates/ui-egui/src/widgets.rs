@@ -162,7 +162,8 @@ impl<'a> NumField<'a> {
     /// values that may be unset, like a character style's attributes).
     pub fn show_or_clear(self, ui: &mut Ui) -> Option<Option<f64>> {
         if self.dialog || crate::dlg_style::active(ui.ctx()) {
-            return self.show_dialog_style(ui);
+            let auto = !self.dialog;
+            return self.show_dialog_style(ui, auto);
         }
         let t = Tokens::get(ui.ctx());
         let key = ui.id().with(self.id);
@@ -291,21 +292,34 @@ impl<'a> NumField<'a> {
 
 impl NumField<'_> {
     /// [`NumField::show_or_clear`] in the dialog design language.
-    fn show_dialog_style(self, ui: &mut Ui) -> Option<Option<f64>> {
+    ///
+    /// `auto` is a field that a converted dialog restyles without asking for it: its width is the
+    /// field's own, and the stepper pill (which the design gives every field) is added beside it.
+    /// A field built with [`NumField::dialog_style`] covers its pill in its width.
+    fn show_dialog_style(self, ui: &mut Ui, auto: bool) -> Option<Option<f64>> {
         use crate::dlg_style as dlg;
         let key = ui.id().with(self.id);
-        let (rect, _) = ui.allocate_exact_size(vec2(self.width, dlg::CONTROL_H), Sense::hover());
+        let pill = dlg::STEPPER_W + dlg::STEPPER_GAP;
+        let with_pill = self.spinner || auto;
+        let field_w = if auto || !self.spinner { self.width } else { (self.width - pill).max(1.0) };
+        let total = if auto { field_w + pill } else { self.width };
+        let (rect, _) = ui.allocate_exact_size(vec2(total, dlg::CONTROL_H), Sense::hover());
         let enabled = self.enabled && ui.is_enabled();
-        let field_w = if self.spinner { (self.width - dlg::STEPPER_W - dlg::STEPPER_GAP).max(1.0) } else { self.width };
         let field = Rect::from_min_size(rect.min, vec2(field_w, dlg::CONTROL_H));
         let step = self.step.unwrap_or_else(|| self.kind.step());
         let clamp = |v: f64| v.clamp(self.range.0, self.range.1);
         // The unit is drawn beside the value, so the value itself carries none.
         let (kind, unit) = match self.kind {
             NumKind::Number { suffix, decimals } => (NumKind::Number { suffix: "", decimals }, suffix.trim()),
+            // `mm`, `pt`, `in`… sit beside the value; picas and ciceros are written `3p6`.
+            NumKind::Measure(u) if u.suffix().starts_with(' ') => (self.kind, u.suffix().trim()),
             other => (other, ""),
         };
-        let fmt = |v: f64| if self.parens { format!("({})", kind.format(v)) } else { kind.format(v) };
+        let fmt = |v: f64| {
+            let shown = kind.format(v);
+            let shown = if unit.is_empty() { shown.as_str() } else { shown.strip_suffix(unit).unwrap_or(&shown).trim_end() }.to_string();
+            if self.parens { format!("({shown})") } else { shown }
+        };
         let mut out: Option<f64> = None;
         let mut cleared = false;
         let focused_id = key.with("te");
@@ -378,7 +392,7 @@ impl NumField<'_> {
         if let Some(c) = outline {
             ui.painter().rect_stroke(field, dlg::field_radius(), Stroke::new(1.0, c), StrokeKind::Inside);
         }
-        if self.spinner {
+        if with_pill {
             let pill = Rect::from_min_size(pos2(field.max.x + dlg::STEPPER_GAP, rect.min.y), vec2(dlg::STEPPER_W, dlg::CONTROL_H));
             if let Some(dir) = dlg::stepper(ui, pill, key.with("spin"), enabled) {
                 let mul = if ui.input(|i| i.modifiers.shift) { 10.0 } else { 1.0 };

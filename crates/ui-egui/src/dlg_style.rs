@@ -222,11 +222,21 @@ pub fn button(ui: &mut Ui, label: &str, kind: ButtonKind, min_width: f32) -> Res
 /// One option of a group of exclusive options (Paragraph Composer | Single-Line Composer): the
 /// chosen one has a green outline.
 pub fn toggle_button(ui: &mut Ui, label: &str, selected: bool) -> Response {
+    toggle_button_sized(ui, label, selected, BUTTON_PAD, 0.0)
+}
+
+/// A compact toggle button for a single character or short word (a bullet, a glyph): the same
+/// look as [`toggle_button`], at least 25 pt wide with less room around the label.
+pub fn chip(ui: &mut Ui, label: &str, selected: bool) -> Response {
+    toggle_button_sized(ui, label, selected, 6.0, CONTROL_H)
+}
+
+fn toggle_button_sized(ui: &mut Ui, label: &str, selected: bool, pad: f32, min_width: f32) -> Response {
     let d = tokens(ui.ctx());
     let enabled = ui.is_enabled();
     let galley = crate::rtl::plain(ui.ctx(), label, text_font(), d.text);
     let (r, resp) =
-        ui.allocate_exact_size(vec2(galley.size().x + 2.0 * BUTTON_PAD, CONTROL_H), if enabled { Sense::click() } else { Sense::hover() });
+        ui.allocate_exact_size(vec2((galley.size().x + 2.0 * pad).max(min_width), CONTROL_H), if enabled { Sense::click() } else { Sense::hover() });
     let fill = if enabled && resp.hovered() && !selected { d.field_hover } else { d.field };
     ui.painter().rect_filled(r, radius(), fill);
     if selected || (enabled && resp.has_focus()) {

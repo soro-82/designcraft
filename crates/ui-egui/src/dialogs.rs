@@ -4960,7 +4960,12 @@ fn bullet_char(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, lu: &L
     ui.horizontal(|ui| {
         let cur = para_value(d, pv, "bulletChar").as_str().unwrap_or("").to_string();
         for b in ["\u{2022}", "\u{2013}", "\u{2014}", "\u{00BB}", "*"] {
-            if ui.add_sized([24.0, 20.0], egui::Button::selectable(cur == b, b)).clicked() {
+            let clicked = if crate::dlg_style::active(ui.ctx()) {
+                crate::dlg_style::chip(ui, b, cur == b).clicked()
+            } else {
+                ui.add_sized([24.0, 20.0], egui::Button::selectable(cur == b, b)).clicked()
+            };
+            if clicked {
                 para_set(d, "bulletChar", json!(b));
             }
         }
@@ -4969,7 +4974,7 @@ fn bullet_char(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, lu: &L
             para_set(d, "bulletChar", json!(s));
         }
         let open = d.b("bulletGlyphs");
-        if ui.selectable_label(open, crate::rtl::widget(ui, crate::i18n::tr(lang, "Glyphs…"))).clicked() {
+        if tab_button(ui, open, crate::i18n::tr(lang, "Glyphs…")).clicked() {
             d.fields.insert("bulletGlyphs".into(), json!(!open));
         }
     });
