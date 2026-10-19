@@ -1276,4 +1276,92 @@ mod tests {
             }
         }
     }
+
+    /// `name` rendered to a 40×40 bitmap (2× supersample of the 20×20 drawing space).
+    ///
+    /// The shapes are run through the tessellator — with the theme fonts installed, so
+    /// text glyphs are real triangle geometry — and a pixel counts as covered when its
+    /// center lands inside any output triangle.
+    fn pixels(name: &str) -> Vec<bool> {
+        const N: usize = 40;
+        let ctx = egui::Context::default();
+        crate::theme::install_fonts(&ctx, "en");
+        let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
+            paint(ui.painter(), Rect::from_min_size(pos2(0.0, 0.0), vec2(20.0, 20.0)), name, Color32::WHITE);
+        });
+        out.textures_delta.clear();
+        let mut tris: Vec<[[f32; 2]; 3]> = Vec::new();
+        for prim in ctx.tessellate(out.shapes, 2.0) {
+            if let egui::epaint::Primitive::Mesh(mesh) = prim.primitive {
+                for c in mesh.indices.chunks_exact(3) {
+                    let (a, b, d) = (mesh.vertices[c[0] as usize], mesh.vertices[c[1] as usize], mesh.vertices[c[2] as usize]);
+                    tris.push([[a.pos.x, a.pos.y], [b.pos.x, b.pos.y], [d.pos.x, d.pos.y]]);
+                }
+            }
+        }
+        let mut bmp = vec![false; N * N];
+        for j in 0..N {
+            for i in 0..N {
+                let (px, py) = ((i as f32 + 0.5) / 2.0, (j as f32 + 0.5) / 2.0);
+                if tris.iter().any(|t| tri_contains(px, py, t)) {
+                    bmp[j * N + i] = true;
+                }
+            }
+        }
+        bmp
+    }
+
+    /// Whether point `(px, py)` is inside (or on) triangle `t`.
+    fn tri_contains(px: f32, py: f32, t: &[[f32; 2]; 3]) -> bool {
+        let ([ax, ay], [bx, by], [cx, cy]) = (t[0], t[1], t[2]);
+        let d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by);
+        let d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy);
+        let d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay);
+        (d1 >= 0.0 && d2 >= 0.0 && d3 >= 0.0) || (d1 <= 0.0 && d2 <= 0.0 && d3 <= 0.0)
+    }
+
+    /// The icon names of every registered panel: the dock tabs and the collapsed icon column.
+    fn registered_panel_icons() -> Vec<&'static str> {
+        let mut names: Vec<&'static str> = crate::dock::DOCK_TABS.iter().map(|p| p.2).collect();
+        for (_, _, icon) in crate::dock::ICON_PANELS {
+            if !names.contains(icon) {
+                names.push(icon);
+            }
+        }
+        names
+    }
+
+    /// Minimum number of pixels (on the 40×40 supersampled grid) by which two
+    /// registered panel icons may differ. The closest current pair is
+    /// `panel-pstyles` vs `panel-cstyles` at 100 px, so the threshold catches copied or
+    /// near-copied icons while leaving room for deliberate family resemblance.
+    const MIN_ICON_DISTANCE: usize = 25;
+
+    /// Every registered panel icon — the dock tabs and the collapsed icon column —
+    /// must render, must not fall back to the placeholder, and must be pairwise
+    /// distinct: neither pixel-identical nor closer than `MIN_ICON_DISTANCE`.
+    /// This keeps a future panel from quietly reusing another panel's shape.
+    #[test]
+    fn sidebar_panel_icons_are_pairwise_distinct() {
+        let names = registered_panel_icons();
+        let unknown = pixels("no-such-icon");
+        let unknown_shapes = drawing("no-such-icon");
+        let drawn: Vec<(String, Vec<bool>)> = names.iter().map(|n| (n.to_string(), pixels(n))).collect();
+
+        for (name, bmp) in &drawn {
+            assert!(bmp.iter().any(|&p| p), "{name} paints no pixels");
+            assert_ne!(*bmp, unknown, "{name} falls back to the placeholder");
+            assert_ne!(drawing(name), unknown_shapes, "{name} falls back to the placeholder");
+        }
+
+        for i in 0..drawn.len() {
+            for j in i + 1..drawn.len() {
+                let (a, aa) = (&drawn[i].0, &drawn[i].1);
+                let (b, bb) = (&drawn[j].0, &drawn[j].1);
+                let diff = aa.iter().zip(bb).filter(|(x, y)| x != y).count();
+                assert!(*aa != *bb, "{a} and {b} paint identical pixels");
+                assert!(diff >= MIN_ICON_DISTANCE, "{a} and {b} differ by only {diff} px (< {MIN_ICON_DISTANCE}); is one a copy of the other?");
+            }
+        }
+    }
 }
