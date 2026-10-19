@@ -2051,6 +2051,12 @@ fn tab_button(ui: &mut egui::Ui, selected: bool, label: &str) -> egui::Response 
     }
 }
 
+/// One chosen-from-a-list row (a swatch name): a selectable label, or in a converted dialog a row
+/// with a green outline when chosen.
+fn list_row(ui: &mut egui::Ui, selected: bool, label: &str) -> egui::Response {
+    if crate::dlg_style::active(ui.ctx()) { crate::dlg_style::list_item(ui, label, selected) } else { ui.selectable_label(selected, label) }
+}
+
 pub fn show(app: &mut DesignApp, ctx: &egui::Context) {
     let Some(mut d) = app.ui.dialog.clone() else { return };
     // Enter and Escape belong to an open popup (a menu, a name field) rather than the dialog.
@@ -2141,6 +2147,7 @@ pub fn show(app: &mut DesignApp, ctx: &egui::Context) {
             "newDocument" => 960.0,
             "numberingSection" => 560.0,
             "justification" => 533.0,
+            "paragraphStyleOptions" | "characterStyleOptions" => 820.0,
             crate::effects_dialog::ID => 720.0,
             _ => 640.0,
         };
@@ -2407,7 +2414,7 @@ pub fn show(app: &mut DesignApp, ctx: &egui::Context) {
                         "paragraphLocal" => paragraph_local(app, ui, &mut d),
                         "justification" => {
                             let current = d.fields.get("current").cloned().unwrap_or_default();
-                            justification_dialog(&app.ui.language, ui, &mut d, &current);
+                            justification_dialog(&app.ui.language, ui, &mut d, "", &current);
                         }
                         "insertXref" => insert_xref(app, ui, &mut d),
                         "findFont" => find_font(app, ui, &mut d),
@@ -4272,7 +4279,7 @@ fn paragraph_style_options(app: &mut DesignApp, ui: &mut egui::Ui, d: &mut Dialo
                     }
                 });
             }
-            "justify" => justification(&app.ui.language, ui, d, "p.", &pv),
+            "justify" => justification_dialog(&app.ui.language, ui, d, "p.", &pv),
             "color" => character_color(&app.ui.language, ui, d, &CharFields { base: &cv, sparse: false }, &doc),
             "advanced" => advanced_character_formats(&app.ui.language, ui, d, &CharFields { base: &cv, sparse: false }),
             "openType" => open_type_features(&app.ui.language, ui, d, &CharFields { base: &cv, sparse: false }),
@@ -5626,7 +5633,7 @@ fn character_color(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, cf: &CharField
     let stroke = d.s("colorTarget") == "stroke";
     ui.horizontal(|ui| {
         for (target, label) in [("fill", "Fill"), ("stroke", "Stroke")] {
-            if ui.selectable_label((target == "stroke") == stroke, crate::rtl::widget(ui, crate::i18n::tr(lang, label))).clicked() {
+            if tab_button(ui, (target == "stroke") == stroke, crate::i18n::tr(lang, label)).clicked() {
                 d.fields.insert("colorTarget".into(), json!(target));
             }
         }
@@ -5639,7 +5646,7 @@ fn character_color(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, cf: &CharField
             ui.horizontal(|ui| {
                 let (r, _) = ui.allocate_exact_size(egui::vec2(14.0, 14.0), egui::Sense::hover());
                 crate::widgets::paint_chip(ui.painter(), r, c, g);
-                if ui.selectable_label(sw.name == cur, &sw.name).clicked() {
+                if list_row(ui, sw.name == cur, &sw.name).clicked() {
                     // A character style's chosen swatch, clicked again, is no longer set.
                     cf.set(d, key, if cf.sparse && sw.name == cur { Value::Null } else { json!(sw.name) });
                 }
@@ -5698,7 +5705,13 @@ fn open_type_features(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, cf: &CharFi
     egui::Grid::new("csss").num_columns(10).spacing([2.0, 2.0]).show(ui, |ui| {
         for n in 1..=20u32 {
             let bit = 1u32 << (n - 1);
-            if ui.add_sized([28.0, 20.0], egui::Button::selectable(mask & bit != 0, format!("{n}"))).clicked() {
+            let on = mask & bit != 0;
+            let clicked = if crate::dlg_style::active(ui.ctx()) {
+                crate::dlg_style::chip(ui, &n.to_string(), on).clicked()
+            } else {
+                ui.add_sized([28.0, 20.0], egui::Button::selectable(on, format!("{n}"))).clicked()
+            };
+            if clicked {
                 otf::set_stylistic_sets(&mut list, mask ^ bit);
                 changed = true;
             }
@@ -5896,66 +5909,14 @@ fn check_justification(d: &Dialog, prefix: &str, current: &Value) -> Result<(), 
     Ok(())
 }
 
-/// The Justification controls (the Justification dialog, and the Paragraph Style Options section).
-/// `current` holds the resolved paragraph attributes, `null` where the selected paragraphs differ
-/// (the field shows empty); each edit is stored as `{prefix}{attr}`, so OK changes only the fields
-/// edited.
-fn justification(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, prefix: &str, current: &Value) {
-    let cur = |d: &Dialog, k: &str| d.fields.get(&format!("{prefix}{k}")).cloned().unwrap_or_else(|| current[k].clone());
-    egui::Grid::new("psj").num_columns(4).spacing([8.0, 6.0]).show(ui, |ui| {
-        ui.label("");
-        crate::rtl::label(ui, crate::i18n::tr(lang, "Minimum"));
-        crate::rtl::label(ui, crate::i18n::tr(lang, "Desired"));
-        crate::rtl::label(ui, crate::i18n::tr(lang, "Maximum"));
-        ui.end_row();
-        for (label, base, _) in JUSTIFY_ROWS {
-            crate::rtl::label(ui, crate::i18n::tr(lang, &format!("{label}:")));
-            for suffix in ["Min", "Desired", "Max"] {
-                let key = format!("{base}{suffix}");
-                let v = cur(d, &key).as_f64().map(|x| x * 100.0);
-                if let Some(n) = ui.scope(|ui| crate::widgets::number(ui, &format!("ps{key}"), v, "%", 60.0, 0)).inner {
-                    d.fields.insert(format!("{prefix}{key}"), json!(n / 100.0));
-                }
-            }
-            ui.end_row();
-        }
-        crate::rtl::label(ui, crate::i18n::tr(lang, "Composer:"));
-        let composer = cur(d, "composer");
-        // Mixed (null) selects neither; a Japanese composer keeps its kind.
-        let (single, [paragraph, single_line]) = crate::panels::properties::composer_choice(composer.as_str());
-        let known = !composer.is_null();
-        if ui.selectable_label(known && !single, crate::rtl::widget(ui, crate::i18n::tr(lang, "Paragraph Composer"))).clicked() {
-            d.fields.insert(format!("{prefix}composer"), json!(paragraph));
-        }
-        if ui.selectable_label(known && single, crate::rtl::widget(ui, crate::i18n::tr(lang, "Single-line Composer"))).clicked() {
-            d.fields.insert(format!("{prefix}composer"), json!(single_line));
-        }
-        ui.end_row();
-        for (label, key, text, default) in [
-            ("Insert Kashidas:", "kashidas", "In justified Arabic text", true),
-            ("Korean Line Breaks:", "koreanCharBreaks", "Between syllables (not only at spaces)", false),
-        ] {
-            crate::rtl::label(ui, crate::i18n::tr(lang, label));
-            let v = cur(d, key);
-            let mut on = v.as_bool().unwrap_or(default);
-            if ui.add(egui::Checkbox::new(&mut on, crate::rtl::widget(ui, crate::i18n::tr(lang, text))).indeterminate(v.is_null())).changed() {
-                d.fields.insert(format!("{prefix}{key}"), json!(on));
-            }
-            ui.end_row();
-        }
-    });
-    if let Some(e) = d.fields.get("justifyError").and_then(Value::as_str) {
-        ui.add_space(6.0);
-        crate::rtl::label(ui, egui::RichText::new(e).color(ui.visuals().error_fg_color));
-    }
-}
-
-/// The Justification dialog in the dialog design language (`dlg_style`): the same fields and edits as
-/// [`justification`], laid out as in the design: labels in a 122 pt column, 95 pt fields with their
-/// stepper, toggle buttons and switches.
-fn justification_dialog(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, current: &Value) {
+/// The Justification controls (the Justification dialog, and the Paragraph Style Options section)
+/// in the dialog design language (`dlg_style`): labels in a 122 pt column, 95 pt fields with their
+/// stepper, toggle buttons and switches. `current` holds the resolved paragraph attributes, `null`
+/// where the selected paragraphs differ (the field shows empty); each edit is stored as
+/// `{prefix}{attr}`, so OK changes only the fields edited.
+fn justification_dialog(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, prefix: &str, current: &Value) {
     use crate::dlg_style as dlg;
-    let cur = |d: &Dialog, k: &str| d.fields.get(k).cloned().unwrap_or_else(|| current[k].clone());
+    let cur = |d: &Dialog, k: &str| d.fields.get(&format!("{prefix}{k}")).cloned().unwrap_or_else(|| current[k].clone());
     let field_w = 70.0 + dlg::STEPPER_GAP + dlg::STEPPER_W;
     ui.spacing_mut().item_spacing = egui::vec2(dlg::GAP, 0.0);
     // Column captions, 3 pt above the first row.
@@ -5977,7 +5938,7 @@ fn justification_dialog(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, current: 
                 let key = format!("{base}{suffix}");
                 let v = cur(d, &key).as_f64().map(|x| x * 100.0);
                 if let Some(n) = crate::widgets::NumField::number(&format!("ps{key}"), v, "%", 0).width(field_w).spinner().dialog_style().show(ui) {
-                    d.fields.insert(key, json!(n / 100.0));
+                    d.fields.insert(format!("{prefix}{key}"), json!(n / 100.0));
                 }
             }
         });
@@ -5990,10 +5951,10 @@ fn justification_dialog(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, current: 
         let known = !composer.is_null();
         ui.spacing_mut().item_spacing.x = 10.0;
         if dlg::toggle_button(ui, crate::i18n::tr(lang, "Paragraph Composer"), known && !single).clicked() {
-            d.fields.insert("composer".into(), json!(paragraph));
+            d.fields.insert(format!("{prefix}composer"), json!(paragraph));
         }
         if dlg::toggle_button(ui, crate::i18n::tr(lang, "Single-line Composer"), known && single).clicked() {
-            d.fields.insert("composer".into(), json!(single_line));
+            d.fields.insert(format!("{prefix}composer"), json!(single_line));
         }
     });
     for (label, key, text, default) in [
@@ -6005,7 +5966,7 @@ fn justification_dialog(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, current: 
             let v = cur(d, key);
             let mut on = v.as_bool().unwrap_or(default);
             if dlg::switch(ui, &mut on, v.is_null(), crate::i18n::tr(lang, text)).changed() {
-                d.fields.insert(key.into(), json!(on));
+                d.fields.insert(format!("{prefix}{key}"), json!(on));
             }
         });
     }

@@ -83,7 +83,9 @@ pub fn apply_scope(ui: &mut Ui) {
     v.extreme_bg_color = d.field;
     v.faint_bg_color = d.field_hover;
     v.window_fill = d.frame;
-    v.selection.bg_fill = d.accent_pressed;
+    // A chosen row of a dropdown list sits on the hover fill; toggles and list rows that are chosen
+    // are drawn with a green outline instead ([`toggle_button`], [`list_item`]), never a fill.
+    v.selection.bg_fill = d.field_hover;
     v.selection.stroke = Stroke::new(1.0, d.accent);
     v.menu_corner_radius = radius();
     let none = Stroke::NONE;
@@ -266,6 +268,23 @@ pub fn category_item(ui: &mut Ui, label: &str, selected: bool, width: f32) -> Re
     }
     let pos = pos2(r.min.x + CATEGORY_PAD, r.min.y + 4.0);
     ui.painter().galley(pos, galley, d.text);
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, selected, label));
+    resp
+}
+
+/// A row of a list the user picks from (a swatch name): hovering fills it, the chosen one has a
+/// green outline.
+pub fn list_item(ui: &mut Ui, label: &str, selected: bool) -> Response {
+    let d = tokens(ui.ctx());
+    let galley = crate::rtl::plain(ui.ctx(), label, text_font(), d.text);
+    let (r, resp) = ui.allocate_exact_size(vec2(galley.size().x + 2.0 * CATEGORY_PAD, CONTROL_H), Sense::click());
+    if resp.hovered() && !selected {
+        ui.painter().rect_filled(r, radius(), d.field_hover);
+    }
+    if selected {
+        ui.painter().rect_stroke(r, radius(), Stroke::new(1.0, d.accent), StrokeKind::Inside);
+    }
+    crate::rtl::paint(ui.painter(), pos2(r.min.x + CATEGORY_PAD, r.center().y), Align2::LEFT_CENTER, label, text_font(), d.text);
     resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, selected, label));
     resp
 }
