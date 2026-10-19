@@ -168,9 +168,9 @@ impl Tokens {
             icon: hex(0xc8c8c8),
             hover: hex(0x424242),
             tool_active: hex(0x1b1b1b),
-            accent: hex(0x378ef0),
-            accent_strong: hex(0x1473e6),
-            row_selected: hex(0x2d4f7c),
+            accent: hex(0x77b521),
+            accent_strong: hex(0x77b521),
+            row_selected: hex(0x3a5a17),
             pasteboard: hex(0x232323),
             ruler: hex(0x2e2e2e),
             ruler_tick: hex(0x9a9a9a),
@@ -583,7 +583,8 @@ pub fn apply(ctx: &egui::Context, t: &Tokens) {
     v.window_corner_radius = CornerRadius::same(4);
     v.menu_corner_radius = CornerRadius::same(4);
     v.selection.bg_fill = t.accent_strong;
-    v.selection.stroke = Stroke::new(1.0, t.text_strong);
+    // Text on the accent is dark, as on the dialogs' accent button.
+    v.selection.stroke = Stroke::new(1.0, if t.dark { hex(0x262626) } else { t.text_strong });
     v.hyperlink_color = t.accent;
     v.override_text_color = Some(t.text);
     craft_ui::theme::WidgetPalette { noninteractive: t.panel, inactive: t.button, hovered: t.hover, active: t.tool_active, open: t.hover }.apply_to(

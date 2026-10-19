@@ -4539,11 +4539,16 @@ fn para_measure(ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, key: &str, unit: 
     }
 }
 
+/// Border and shading rows share one label column and one dropdown width, so every field and
+/// dropdown starts at the same x and the dialog uses its width.
+const BS_LABEL_W: f32 = 100.0;
+const BS_DROPDOWN_W: f32 = 260.0;
+
 /// A paragraph attribute chosen from `opts` (serialized value, label).
 fn para_choice(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, key: &str, opts: &[(&str, &str)]) {
     let cur = para_value(d, pv, key);
     let shown = opts.iter().find(|o| cur == o.0).map_or("", |o| crate::i18n::tr(lang, o.1));
-    egui::ComboBox::from_id_salt(("pschoice", key)).selected_text(crate::rtl::widget(ui, shown)).width(200.0).show_ui(ui, |ui| {
+    egui::ComboBox::from_id_salt(("pschoice", key)).selected_text(crate::rtl::widget(ui, shown)).width(BS_DROPDOWN_W).show_ui(ui, |ui| {
         for (v, label) in opts {
             if ui.selectable_label(cur == *v, crate::rtl::widget(ui, crate::i18n::tr(lang, label))).clicked() {
                 para_set(d, key, json!(v));
@@ -4557,7 +4562,7 @@ fn para_choice(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, key: &
 fn para_sides(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, key: &str, field: &dyn Fn(&mut egui::Ui, &str, Option<f64>) -> Option<f64>) {
     let mut sides: [f64; 4] = serde_json::from_value(para_value(d, pv, key)).unwrap_or_default();
     let mut changed = false;
-    egui::Grid::new(("pssides", key)).num_columns(4).spacing([8.0, 6.0]).show(ui, |ui| {
+    egui::Grid::new(("pssides", key)).num_columns(4).spacing([8.0, 6.0]).min_col_width(BS_LABEL_W).show(ui, |ui| {
         for (i, label) in ["Top:", "Left:", "Bottom:", "Right:"].into_iter().enumerate() {
             crate::rtl::label(ui, crate::i18n::tr(lang, label));
             if let Some(side) = sides.get_mut(i)
@@ -4607,7 +4612,7 @@ fn border_type_menu(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, d
         StrokeType::Style { name } => name.clone(),
         k => crate::i18n::tr(lang, k.label()).to_string(),
     };
-    egui::ComboBox::from_id_salt("psbordertype").selected_text(crate::rtl::widget(ui, shown)).width(160.0).show_ui(ui, |ui| {
+    egui::ComboBox::from_id_salt("psbordertype").selected_text(crate::rtl::widget(ui, shown)).width(BS_DROPDOWN_W).show_ui(ui, |ui| {
         for k in BORDER_TYPES {
             let ty = if k == "dashed" { json!({"kind": k, "pattern": []}) } else { json!({"kind": k}) };
             let Ok(t) = serde_json::from_value::<StrokeType>(ty.clone()) else { continue };
@@ -4631,7 +4636,7 @@ fn para_corners(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, key: 
     use designcraft_geom::corners::{Corner, CornerShape};
     let mut corners: [Corner; 4] = serde_json::from_value(para_value(d, pv, key)).unwrap_or_default();
     let mut changed = false;
-    egui::Grid::new(("pscorners", key)).num_columns(3).spacing([8.0, 6.0]).show(ui, |ui| {
+    egui::Grid::new(("pscorners", key)).num_columns(3).spacing([8.0, 6.0]).min_col_width(BS_LABEL_W).show(ui, |ui| {
         for (i, label) in ["Top Left:", "Top Right:", "Bottom Right:", "Bottom Left:"].into_iter().enumerate() {
             let Some(c) = corners.get_mut(i) else { continue };
             crate::rtl::label(ui, crate::i18n::tr(lang, label));
@@ -4641,7 +4646,7 @@ fn para_corners(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, key: 
             }
             egui::ComboBox::from_id_salt(("pscornershape", key, i))
                 .selected_text(crate::rtl::widget(ui, crate::i18n::tr(lang, c.shape.label())))
-                .width(130.0)
+                .width(BS_DROPDOWN_W)
                 .show_ui(ui, |ui| {
                     for shape in CornerShape::ALL {
                         if ui.selectable_label(c.shape == shape, crate::rtl::widget(ui, crate::i18n::tr(lang, shape.label()))).clicked() {
@@ -4671,7 +4676,7 @@ fn para_color_tint(
     let (color_key, tint_key) = keys;
     crate::rtl::label(ui, labels.0);
     let color = para_value(d, pv, color_key).as_str().unwrap_or("").to_string();
-    if let Some(w) = ui.add_enabled_ui(enabled, |ui| swatch_menu(ui, doc, ("pscolor", color_key), &color, 160.0)).inner {
+    if let Some(w) = ui.add_enabled_ui(enabled, |ui| swatch_menu(ui, doc, ("pscolor", color_key), &color, BS_DROPDOWN_W)).inner {
         para_set(d, color_key, json!(w));
     }
     ui.end_row();
@@ -4697,7 +4702,7 @@ fn border_shading(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, doc
         crate::rtl::label(ui, egui::RichText::new(crate::i18n::tr(lang, t)).font(semibold(12.0)));
     };
     ui.add_space(4.0);
-    egui::ScrollArea::vertical().id_salt(("psbsscroll", border)).max_height(330.0).show(ui, |ui| {
+    egui::ScrollArea::vertical().id_salt(("psbsscroll", border)).max_height(330.0).auto_shrink([false, true]).show(ui, |ui| {
         ui.add_enabled_ui(on, |ui| {
             if border {
                 head(ui, "Stroke");
@@ -4708,7 +4713,7 @@ fn border_shading(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, doc
             } else {
                 head(ui, "Color");
             }
-            egui::Grid::new(("psbs", border)).num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
+            egui::Grid::new(("psbs", border)).num_columns(2).spacing([8.0, 6.0]).min_col_width(BS_LABEL_W).show(ui, |ui| {
                 if border {
                     crate::rtl::label(ui, crate::i18n::tr(lang, "Type:"));
                     border_type_menu(lang, ui, d, pv, doc);
@@ -4736,7 +4741,7 @@ fn border_shading(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, pv: &Value, doc
                 crate::widgets::measure(ui, id, v, units, 60.0)
             });
             ui.add_space(4.0);
-            egui::Grid::new(("psbsedges", border)).num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
+            egui::Grid::new(("psbsedges", border)).num_columns(2).spacing([8.0, 6.0]).min_col_width(BS_LABEL_W).show(ui, |ui| {
                 crate::rtl::label(ui, crate::i18n::tr(lang, "Top Edge:"));
                 para_choice(
                     lang,
