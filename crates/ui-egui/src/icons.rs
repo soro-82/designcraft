@@ -481,10 +481,10 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32) {
             pen.line(&[(10.0, 15.5), (10.0, 6.5)]);
         }
         "panel-scripts" => {
-            // Script code: angle brackets around a slash.
-            pen.line(&[(7.5, 5.0), (3.5, 10.0), (7.5, 15.0)]);
-            pen.line(&[(12.5, 5.0), (16.5, 10.0), (12.5, 15.0)]);
-            pen.line(&[(11.2, 4.0), (8.8, 16.0)]);
+            // A pair of faceted curly braces — the classic script/code glyph, clearly
+            // distinct from the angle brackets used by Tags.
+            pen.line(&[(8.5, 4.0), (6.5, 4.0), (6.5, 7.5), (4.5, 10.0), (6.5, 12.5), (6.5, 16.0), (8.5, 16.0)]);
+            pen.line(&[(11.5, 4.0), (13.5, 4.0), (13.5, 7.5), (15.5, 10.0), (13.5, 12.5), (13.5, 16.0), (11.5, 16.0)]);
         }
         "panel-notes" => {
             // A note with a folded corner.
