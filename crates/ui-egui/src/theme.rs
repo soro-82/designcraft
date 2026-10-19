@@ -114,6 +114,8 @@ pub struct DialogTokens {
     pub accent_pressed: Color32,
     /// Text on the accent button.
     pub on_accent: Color32,
+    /// The chosen item of a category list.
+    pub category_active: Color32,
     pub light_button: Color32,
     pub light_button_pressed: Color32,
     /// Text on the light button.
@@ -138,6 +140,7 @@ impl DialogTokens {
             accent_hover: hex(0xace55c),
             accent_pressed: hex(0x5f9419),
             on_accent: hex(0x262626),
+            category_active: hex(0x0d0d0d),
             light_button: hex(0xd9d9d9),
             light_button_pressed: hex(0xbdbdbd),
             on_light: hex(0x262626),

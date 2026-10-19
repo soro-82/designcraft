@@ -76,6 +76,11 @@ pub fn plain(ctx: &egui::Context, text: &str, font: FontId, color: Color32) -> A
     layout(ctx, LayoutJob::simple_singleline(text.to_owned(), font, color))
 }
 
+/// Text wrapped at `wrap_width`.
+pub fn wrapped(ctx: &egui::Context, text: &str, font: FontId, color: Color32, wrap_width: f32) -> Arc<Galley> {
+    layout(ctx, LayoutJob::simple(text.to_owned(), font, color, wrap_width.max(1.0)))
+}
+
 /// One line no wider than `max_width`: longer text ends in an ellipsis, cut at a grapheme
 /// boundary in logical order (`Galley::elided` tells whether it was cut).
 pub fn truncated(ctx: &egui::Context, text: &str, font: FontId, color: Color32, max_width: f32) -> Arc<Galley> {

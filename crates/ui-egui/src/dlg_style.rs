@@ -31,6 +31,11 @@ const BUTTON_PAD: f32 = 12.0;
 /// Width the label column of a form needs (Figma: 19 pt margin, labels, then the controls at 156).
 pub const LABEL_COL_W: f32 = 122.0;
 /// Space between neighbouring controls in a row.
+/// Left and right room around a category label.
+const CATEGORY_PAD: f32 = 12.0;
+/// Width of a category list, and the room between it and the options.
+pub const CATEGORY_W: f32 = 149.0;
+pub const CATEGORY_GAP: f32 = 30.0;
 pub const GAP: f32 = 15.0;
 /// Space between rows of 25 pt controls.
 pub const ROW_GAP: f32 = 14.0;
@@ -40,7 +45,7 @@ pub const FOOTER_MARGIN: Margin = Margin { left: 19, right: 25, top: 0, bottom: 
 
 /// Whether the dialog `id` has been converted to the new design language.
 pub fn is_styled(id: &str) -> bool {
-    matches!(id, "justification" | "paragraphRules" | "paragraphLocal")
+    matches!(id, "justification" | "paragraphRules" | "paragraphLocal" | "paragraphStyleOptions" | "characterStyleOptions")
 }
 
 /// Whether a converted dialog is being drawn. The shared helpers (`check`, `combo`, number
@@ -244,6 +249,24 @@ fn toggle_button_sized(ui: &mut Ui, label: &str, selected: bool, pad: f32, min_w
     }
     crate::rtl::paint(ui.painter(), r.center(), Align2::CENTER_CENTER, label, text_font(), if enabled { d.text } else { d.text_disabled });
     resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, enabled, selected, label));
+    resp
+}
+
+/// One row of a left-hand category list (Paragraph Style Options): the chosen row sits on a dark
+/// pill, the others are muted text that wraps within the row, 25 pt tall for a single line.
+pub fn category_item(ui: &mut Ui, label: &str, selected: bool, width: f32) -> Response {
+    let d = tokens(ui.ctx());
+    let galley = crate::rtl::wrapped(ui.ctx(), label, text_font(), if selected { d.text } else { d.label }, width - 2.0 * CATEGORY_PAD);
+    let height = (galley.size().y + 8.0).max(CONTROL_H);
+    let (r, resp) = ui.allocate_exact_size(vec2(width, height), Sense::click());
+    if selected {
+        ui.painter().rect_filled(r, radius(), d.category_active);
+    } else if resp.hovered() {
+        ui.painter().rect_filled(r, radius(), d.field_hover);
+    }
+    let pos = pos2(r.min.x + CATEGORY_PAD, r.min.y + 4.0);
+    ui.painter().galley(pos, galley, d.text);
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, selected, label));
     resp
 }
 

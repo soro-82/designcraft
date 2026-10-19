@@ -3923,7 +3923,6 @@ fn paragraph_style_options(app: &mut DesignApp, ui: &mut egui::Ui, d: &mut Dialo
                 ("export", "Export Tagging"),
             ],
         );
-        ui.separator();
         let cnames: Vec<String> = app.session.active().map(|s| s.doc.styles.character.iter().map(|c| c.name.clone()).collect()).unwrap_or_default();
         ui.vertical(|ui| match d.s("section").as_str() {
             "export" => {
@@ -3983,7 +3982,7 @@ fn paragraph_style_options(app: &mut DesignApp, ui: &mut egui::Ui, d: &mut Dialo
                 });
                 for (label, key) in [("Align Left Edge", "dropCapAlignLeft"), ("Scale for Descenders", "dropCapScaleDescenders")] {
                     let mut on = cur(d, &format!("p.{key}"), &pv[key]).as_bool().unwrap_or(false);
-                    if ui.checkbox(&mut on, crate::rtl::widget(ui, crate::i18n::tr(&app.ui.language, label))).changed() {
+                    if checkbox(ui, &mut on, false, crate::i18n::tr(&app.ui.language, label)).changed() {
                         d.fields.insert(format!("p.{key}"), json!(on));
                     }
                 }
@@ -4023,7 +4022,8 @@ fn paragraph_style_options(app: &mut DesignApp, ui: &mut egui::Ui, d: &mut Dialo
                             });
                         let mut n = ns["count"].as_u64().unwrap_or(1) as u32;
                         let mut count_value = |ui: &mut egui::Ui, ns: &mut Value, changed: &mut bool| {
-                            if ui.add(egui::DragValue::new(&mut n).range(1..=999)).changed() {
+                            if let Some(v) = crate::widgets::number(ui, &format!("psnscount{i}"), Some(f64::from(n)), "", 60.0, 0) {
+                                n = if v.is_finite() { v.round().clamp(1.0, 999.0) as u32 } else { 1 };
                                 ns["count"] = json!(n);
                                 *changed = true;
                             }
@@ -4125,7 +4125,8 @@ fn paragraph_style_options(app: &mut DesignApp, ui: &mut egui::Ui, d: &mut Dialo
                             },
                         );
                         let mut n = l["lines"].as_u64().unwrap_or(1) as u32;
-                        if ui.add(egui::DragValue::new(&mut n).range(1..=999)).changed() {
+                        if let Some(v) = crate::widgets::number(ui, &format!("psnlslines{i}"), Some(f64::from(n)), "", 60.0, 0) {
+                            n = if v.is_finite() { v.round().clamp(1.0, 999.0) as u32 } else { 1 };
                             l["lines"] = json!(n);
                             changed = true;
                         }
@@ -4252,7 +4253,7 @@ fn paragraph_style_options(app: &mut DesignApp, ui: &mut egui::Ui, d: &mut Dialo
             "rules" => paragraph_rules(app, ui, d, "p.", &pv),
             "hyph" => {
                 let mut h = cur(d, "p.hyphenate", &pv["hyphenate"]).as_bool().unwrap_or(true);
-                if ui.checkbox(&mut h, crate::rtl::widget(ui, crate::i18n::tr(&app.ui.language, "Hyphenate"))).changed() {
+                if checkbox(ui, &mut h, false, crate::i18n::tr(&app.ui.language, "Hyphenate")).changed() {
                     d.fields.insert("p.hyphenate".into(), json!(h));
                 }
                 egui::Grid::new("psh").num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
@@ -5208,17 +5209,33 @@ fn paragraph_local(app: &mut DesignApp, ui: &mut egui::Ui, d: &mut Dialog) {
 
 fn section_list(lang: &str, ui: &mut egui::Ui, d: &mut Dialog, cjk: bool, sections: &[(&str, &str)]) {
     let sections = style_cjk::sections(cjk, d.id == "paragraphStyleOptions", sections);
+    let styled = crate::dlg_style::active(ui.ctx());
     ui.vertical(|ui| {
-        ui.set_width(170.0);
+        ui.set_width(if styled { crate::dlg_style::CATEGORY_W + 10.0 } else { 170.0 });
         // The dialog has a fixed height; a long list scrolls.
         egui::ScrollArea::vertical().id_salt("style_sections").auto_shrink([false, true]).show(ui, |ui| {
+            if styled {
+                ui.spacing_mut().item_spacing.y = 10.0;
+            }
             for (id, label) in &sections {
-                if ui.selectable_label(d.s("section") == *id, crate::rtl::widget(ui, crate::i18n::tr(lang, label))).clicked() {
+                let selected = d.s("section") == *id;
+                let text = crate::i18n::tr(lang, label);
+                let clicked = if styled {
+                    crate::dlg_style::category_item(ui, text, selected, crate::dlg_style::CATEGORY_W).clicked()
+                } else {
+                    ui.selectable_label(selected, crate::rtl::widget(ui, text)).clicked()
+                };
+                if clicked {
                     d.fields.insert("section".into(), json!(id));
                 }
             }
         });
     });
+    if styled {
+        ui.add_space(crate::dlg_style::CATEGORY_GAP);
+    } else {
+        ui.separator();
+    }
 }
 
 /// "Paragraph Style n" / "Character Style n": the first name no style has.
@@ -5301,7 +5318,6 @@ fn character_style_options(app: &mut DesignApp, ui: &mut egui::Ui, d: &mut Dialo
                 ("strikethrough", "Strikethrough Options"),
             ],
         );
-        ui.separator();
         ui.vertical(|ui| match d.s("section").as_str() {
             "chars" => basic_character_formats(app, ui, d, &cf),
             "advanced" => advanced_character_formats(&lang, ui, d, &cf),
